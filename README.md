@@ -1,124 +1,231 @@
-# Batch Renamer
+# PDFusion
 
-A Windows Forms application for batch renaming PDF application forms using student data from CSV or Excel files.
+**Data-driven document reorganization tool**
+
+A professional Windows desktop application for batch renaming student PDF application forms using CSV or Excel data. Built for admissions offices and educational institutions.
+
+![PDFusion Screenshot](readme_images/screenshot1.png)
+
+---
 
 ## Features
 
-- **Loads student data** from CSV or Excel files (any filename, from desktop)
-- **Automatically matches** PDF files by student number
-- **Renames PDFs** in format: `b[Batch] [Forename] [Surname] [StudentNo] [H/O] [Grade].pdf`
-- **Preview before renaming** - see what will change before committing
-- **Undo functionality** - restore original filenames if needed
-- **Modern UI** with drag-and-drop support
+- Smart data loading from CSV or Excel files
+- Batch process hundreds of PDFs in seconds
+- Preview all changes before applying
+- Renamed files saved to separate subfolder
+- Undo support for last operation
+- Modern Windows Forms interface
+- Automatic proper case formatting and status codes
 
-## Renaming Format
+--- 
 
-Original: `26034824-01-01-OVERVIEW.PDF`
+## Use Case
 
-New: `b1 Lisa Jackson 26034824 H 2_1.pdf`
+Designed for admissions officers, registrars, and educational administrators who need to:
+- Organize large batches of student application PDFs
+- Rename files based on spreadsheet data
+- Maintain consistent file naming conventions
+- Process applications efficiently
 
-Where:
-- **b1** = Batch number (extracted from "Batch 1", "Batch 2", etc.)
-- **Lisa Jackson** = Forename and Surname from CSV
-- **26034824** = Student number
-- **H** = Home student (or **O** for Overseas)
-- **2_1** = UK Grade (2.1, 1, 2.2, 3)
+---
 
-## Required CSV/Excel Columns
+## How It Works
 
-Your data file must contain these columns (names must match exactly):
+### Input Format
 
-- `StudentNo` - Student number (must match PDF filename)
-- `Batch` - Batch information (e.g., "Batch 1", "Batch 2")
+**PDF Files:**
+```
+26034824-01-01-OVERVIEW.PDF
+26043635-02-01-OVERVIEW.PDF
+26049530-01-01-OVERVIEW.PDF
+```
+
+**CSV/Excel Data:**
+
+Required columns:
+- `StudentNo` - Student number (matches PDF filename prefix)
+- `Batch` - Batch identifier (e.g., "Batch 1", "Batch 2")
 - `Forename` - Student's first name
 - `Surname` - Student's last name
-- `FeeStatus` - Must contain "Home" or "Overseas"
+- `FeeStatus` - Fee classification (must contain "Home" or "Overseas")
 - `UKGrade` - UK grade classification (e.g., "2.1", "1", "2.2", "3")
 
-## How to Use
+### Output Format
 
-1. **Load Student Data**
-   - Click or drag CSV/Excel file into Step 1 panel
-   - File can be named anything, but must have correct column headers
-   - Application will validate and load student records
+```
+b1 John Smith 26049530 H 2_1.pdf
+b1 Jane Doe 26038447 H 1.pdf
+b1 Alex Johnson 26045428 OH 2_1.pdf
+```
 
-2. **Select PDF Folder**
-   - Click Step 2 panel to browse for folder containing PDFs
-   - PDFs should be named like: `XXXXXXXX-XX-XX-OVERVIEW.PDF`
-   - Where XXXXXXXX is the student number
+**Format breakdown:**
+- `b1` - Batch number
+- `John Smith` - Proper case name (converted from ALL CAPS)
+- `26049530` - Student number
+- `H` - Home fee status (`OH` = Overseas)
+- `2_1` - UK grade classification
 
-3. **Preview Renames**
-   - Click "Preview Renames" button
-   - Review the proposed changes in the preview list
-   - Green rows = successful match
-   - Red rows = student not found in data
-   - Gray rows = could not extract student number
+---
 
-4. **Apply Renames**
-   - Click "Apply Renames" button
-   - Confirm the operation
-   - Files will be renamed
-   - Status log shows progress
+## Quick Start
 
-5. **Undo (if needed)**
-   - Click "Undo Last Batch" to restore original filenames
-   - Only works for the most recent rename operation
+### Usage
 
-## Building the Application
+1. Launch `PDFusion.exe`
+2. **Step 1:** Click or drag your CSV/Excel file with student data
+3. **Step 2:** Choose the folder containing PDF files to rename
+4. Click **Preview Renames** to see all proposed changes
+5. Click **Apply Renames** to process files
+6. Renamed files appear in the "Renamed" subfolder
 
-### Requirements
+Original PDF files remain untouched in the source folder.
+
+---
+
+## Installation
+
+### Option A: Download Release (Recommended)
+1. Download `PDFusion.exe` from the Releases page
+2. Place it anywhere on your PC
+3. Double-click to run (no installation required)
+
+### Option B: Build from Source
+1. Clone this repository
+2. Open PowerShell in project folder
+3. Run: `.\goDeploy.ps1`
+4. Find `PDFusion.exe` on your Desktop
+
+---
+
+## System Requirements
+
+- **OS:** Windows 10/11 (64-bit)
+- **Runtime:** .NET 9.0 (included in self-contained builds)
+- **Memory:** Minimum 100MB RAM
+- **Storage:** 10MB disk space
+
+---
+
+## Project Structure
+
+```
+PDFusion/
+├── readme_images/
+│   └── screenshot1.png      # Application screenshot
+├── data/                     # Sample data folder
+├── MainForm.cs              # Main application logic
+├── UIComponents.cs          # Custom UI controls
+├── Program.cs               # Application entry point
+├── PDFusion.csproj          # Project configuration
+├── goDeploy.ps1             # Build & deployment script
+└── README.md                # This file
+```
+
+---
+
+## Smart Features
+
+### Automatic Name Formatting
+Converts names from ALL CAPS to proper case:
+- `JOHN SMITH` → `John Smith`
+- `MARIA GARCIA` → `Maria Garcia`
+- `DAVID CHEN` → `David Chen`
+
+### Fee Status Codes
+- `HOME` or `HOME (PROVISIONAL)` → `H`
+- `OVERSEAS` or `OVERSEAS STUDENTS` → `OH`
+
+### UK Grade Formatting
+- `2.1` or `2:1` → `2_1`
+- `First Class` or `1st` → `1`
+- `2.2` or `2:2` → `2_2`
+- `3rd` or `3.0` → `3`
+
+### Safety Features
+- Original PDFs never modified
+- Renamed files saved to separate folder
+- Preview all changes before applying
+- Undo last batch operation
+- Detailed status logging
+- Handles duplicate filenames gracefully
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**"Could not find StudentNo column"**
+- Ensure your CSV/Excel has a column named exactly `StudentNo`
+- Check for extra spaces or special characters in header names
+
+**"Student XXXXXXXX not found in data"**
+- The PDF's student number doesn't exist in your data file
+- Verify student numbers match between PDFs and spreadsheet
+
+**"Could not extract student number"**
+- PDF filename doesn't match expected format
+- Required format: `XXXXXXXX-XX-XX-OVERVIEW.PDF` (8 digits at start)
+
+**"Target already exists"**
+- A file with the new name already exists in the Renamed folder
+- Check for duplicate student records in your data
+
+---
+
+## Building from Source
+
+### Prerequisites
 - .NET 9.0 SDK or later
 - Windows OS
 
 ### Build Instructions
 
-```bash
-# Restore dependencies
-dotnet restore
+```powershell
+# Clone repository
+git clone https://github.com/yourusername/pdfusion.git
+cd pdfusion
 
-# Build the application
-dotnet build -c Release
+# Option 1: Use deployment script (recommended)
+.\goDeploy.ps1
 
-# Run the application
-dotnet run
-
-# Or publish as single executable
-dotnet publish -c Release -r win-x64 --self-contained
+# Option 2: Manual build
+dotnet restore PDFusion.csproj
+dotnet build PDFusion.csproj -c Release
+dotnet publish PDFusion.csproj -c Release -r win-x64 --self-contained
 ```
 
-The built executable will be in: `bin/Release/net9.0-windows/win-x64/publish/BatchRenamer.exe`
-
-## Project Structure
-
+Executable location:
 ```
-BatchRenamer/
-├── MainForm.cs          # Main application form and logic
-├── UIComponents.cs      # Custom UI components (panels, buttons)
-├── Program.cs           # Application entry point
-├── BatchRenamer.csproj  # Project configuration
-└── README.md           # This file
+bin\Release\net9.0-windows\win-x64\publish\PDFusion.exe
 ```
 
-## Dependencies
-
-- **EPPlus 7.5.2** - For reading Excel files (.xlsx, .xls)
-- **.NET 9.0 Windows Forms** - UI framework
-
-## Notes
-
-- PDF files not matching any student number will be skipped
-- Duplicate filenames will be detected and skipped during rename
-- All operations are logged to the status window
-- Undo only works for the most recent batch of renames
-
-## Error Handling
-
-The application handles common errors:
-- Missing or invalid CSV/Excel columns
-- PDF files with unexpected naming format
-- File access permission issues
-- Duplicate target filenames
+---
 
 ## License
 
+© 2025 Ricki Angel
+
 Free to use for educational and personal purposes.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please submit a Pull Request.
+
+---
+
+## Acknowledgments
+
+**Built with:**
+- .NET 9.0 Windows Forms - UI Framework
+- EPPlus 7.5.2 - Excel file processing
+- C# - Programming language
+
+---
+
+## Support
+
+For issues, questions, or feature requests, please open an issue on GitHub.
