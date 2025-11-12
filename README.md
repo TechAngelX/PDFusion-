@@ -1,6 +1,6 @@
 # PDFusion
 
-**Data-driven document reorganization tool**
+**Data-driven document reorganisation tool**
 
 A professional Windows desktop application for batch renaming student PDF application forms using CSV or Excel data. Built for admissions offices and educational institutions.
 
@@ -22,7 +22,7 @@ A professional Windows desktop application for batch renaming student PDF applic
 
 ## Use Case
 
-Designed for admissions officers, registrars, and educational administrators who need to:
+Designed for office administrators who need to:
 - Organize large batches of student application PDFs
 - Rename files based on spreadsheet data
 - Maintain consistent file naming conventions
