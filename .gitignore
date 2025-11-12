@@ -1,0 +1,28 @@
+﻿# Build folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+
+# Build outputs (executables and libraries)
+*.exe
+*.dll
+*.pdb
+
+# NuGet
+packages/
+*.nupkg
+
+# Other
+*.cache
+*.log
+
+# Keep readme images
+!readme_images/
