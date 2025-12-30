@@ -7,7 +7,7 @@ A professional Windows desktop application for batch renaming student PDF applic
 ![PDFusion Screenshot](readme_images/screenshot1.png)
 
 ---
-
+ 
 ## Features
 
 - Smart data loading from CSV or Excel files
