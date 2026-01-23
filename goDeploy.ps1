@@ -1,28 +1,55 @@
 # PDFusion Deployment Script
 # Builds and publishes the application as a self-contained executable
+# Supports Windows, macOS (Intel & Apple Silicon), and Linux
 
 param(
     [string]$Configuration = "Release",
-    [string]$Runtime = "win-x64"
+    [ValidateSet("win-x64", "osx-x64", "osx-arm64", "linux-x64", "current")]
+    [string]$Runtime = "current"
 )
 
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "  PDFusion Build & Publish" -ForegroundColor Cyan
+Write-Host "  PDFusion Cross-Platform Build" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check for running processes
-Write-Host "Checking for running instances..." -ForegroundColor Yellow
-$process = Get-Process -Name "PDFusion" -ErrorAction SilentlyContinue
-if ($process) {
-    Write-Host "PDFusion is currently running. Please close it first!" -ForegroundColor Red
-    $close = Read-Host "Press Y to force close, or any other key to exit"
-    if ($close -eq "Y" -or $close -eq "y") {
-        Stop-Process -Name "PDFusion" -Force
-        Start-Sleep -Seconds 2
-        Write-Host "Process closed" -ForegroundColor Green
+# Determine current platform if "current" is specified
+if ($Runtime -eq "current") {
+    if ($IsWindows -or $env:OS -eq "Windows_NT") {
+        $Runtime = "win-x64"
+    } elseif ($IsMacOS) {
+        # Check for Apple Silicon
+        $arch = uname -m
+        if ($arch -eq "arm64") {
+            $Runtime = "osx-arm64"
+        } else {
+            $Runtime = "osx-x64"
+        }
+    } elseif ($IsLinux) {
+        $Runtime = "linux-x64"
     } else {
-        exit 1
+        Write-Host "Could not detect platform, defaulting to current OS" -ForegroundColor Yellow
+        $Runtime = "win-x64"
+    }
+}
+
+Write-Host "Building for: $Runtime" -ForegroundColor Yellow
+Write-Host ""
+
+# Check for running processes (Windows only)
+if ($Runtime -eq "win-x64") {
+    Write-Host "Checking for running instances..." -ForegroundColor Yellow
+    $process = Get-Process -Name "PDFusion" -ErrorAction SilentlyContinue
+    if ($process) {
+        Write-Host "PDFusion is currently running. Please close it first!" -ForegroundColor Red
+        $close = Read-Host "Press Y to force close, or any other key to exit"
+        if ($close -eq "Y" -or $close -eq "y") {
+            Stop-Process -Name "PDFusion" -Force
+            Start-Sleep -Seconds 2
+            Write-Host "Process closed" -ForegroundColor Green
+        } else {
+            exit 1
+        }
     }
 }
 Write-Host ""
@@ -76,51 +103,83 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Publish complete" -ForegroundColor Green
 Write-Host ""
 
-# Copy executable to Desktop
-$publishPath = "bin\$Configuration\net9.0-windows\$Runtime\publish"
-$desktopPath = [Environment]::GetFolderPath("Desktop")
-$exeName = "PDFusion.exe"
+# Determine paths based on runtime
+$publishPath = "bin/$Configuration/net10.0/$Runtime/publish"
 
-Write-Host ""
-Write-Host "Copying executable to Desktop..." -ForegroundColor Yellow
-
-try {
-    Copy-Item -Path "$publishPath\$exeName" -Destination "$desktopPath\$exeName" -Force
-    Write-Host "Copied to Desktop successfully" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to copy to Desktop: $_" -ForegroundColor Red
+# Set executable name based on platform
+if ($Runtime -eq "win-x64") {
+    $exeName = "PDFusion.exe"
+} else {
+    $exeName = "PDFusion"
 }
 
-# Also copy the data folder next to the executable
-Write-Host "Copying data folder..." -ForegroundColor Yellow
-try {
-    if (Test-Path "$publishPath\data") {
-        Remove-Item -Path "$publishPath\data" -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host ""
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host "  Build Complete!" -ForegroundColor Cyan
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Executable location:" -ForegroundColor Yellow
+Write-Host "  $publishPath/$exeName" -ForegroundColor White
+Write-Host ""
+
+# Platform-specific post-build steps
+if ($Runtime -eq "win-x64") {
+    # Copy to Desktop on Windows
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+
+    Write-Host "Copying executable to Desktop..." -ForegroundColor Yellow
+    try {
+        Copy-Item -Path "$publishPath/$exeName" -Destination "$desktopPath/$exeName" -Force
+        Write-Host "Copied to Desktop successfully" -ForegroundColor Green
+        Write-Host "  Desktop: $desktopPath/$exeName" -ForegroundColor White
+    } catch {
+        Write-Host "Failed to copy to Desktop: $_" -ForegroundColor Red
     }
-    Copy-Item -Path "data" -Destination "$publishPath\data" -Recurse -Force
-    Write-Host "Data folder copied" -ForegroundColor Green
-} catch {
-    Write-Host "Warning: Could not copy data folder: $_" -ForegroundColor Yellow
+
+    # Offer to open Desktop folder
+    $openFolder = Read-Host "Open Desktop folder? (Y/N)"
+    if ($openFolder -eq "Y" -or $openFolder -eq "y") {
+        Start-Process explorer.exe -ArgumentList $desktopPath
+    }
+} elseif ($Runtime -like "osx-*") {
+    Write-Host "macOS Notes:" -ForegroundColor Yellow
+    Write-Host "  - You may need to allow the app in System Preferences > Security" -ForegroundColor White
+    Write-Host "  - To run: ./$publishPath/$exeName" -ForegroundColor White
+    Write-Host "  - Or double-click the executable in Finder" -ForegroundColor White
+    Write-Host ""
+
+    # Make executable on macOS
+    if ($IsMacOS) {
+        chmod +x "$publishPath/$exeName"
+        Write-Host "Made executable with chmod +x" -ForegroundColor Green
+    }
+} elseif ($Runtime -eq "linux-x64") {
+    Write-Host "Linux Notes:" -ForegroundColor Yellow
+    Write-Host "  - To run: ./$publishPath/$exeName" -ForegroundColor White
+    Write-Host ""
+
+    # Make executable on Linux
+    if ($IsLinux) {
+        chmod +x "$publishPath/$exeName"
+        Write-Host "Made executable with chmod +x" -ForegroundColor Green
+    }
+}
+
+# Copy data folder if it exists
+if (Test-Path "data") {
+    Write-Host ""
+    Write-Host "Copying data folder..." -ForegroundColor Yellow
+    try {
+        if (Test-Path "$publishPath/data") {
+            Remove-Item -Path "$publishPath/data" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Copy-Item -Path "data" -Destination "$publishPath/data" -Recurse -Force
+        Write-Host "Data folder copied" -ForegroundColor Green
+    } catch {
+        Write-Host "Warning: Could not copy data folder: $_" -ForegroundColor Yellow
+    }
 }
 
 Write-Host ""
-Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "  Deployment Complete!" -ForegroundColor Cyan
-Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host "You can now run PDFusion!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Executable locations:" -ForegroundColor Yellow
-Write-Host "  Desktop: $desktopPath\$exeName" -ForegroundColor White
-Write-Host "  Source:  $publishPath\$exeName" -ForegroundColor White
-Write-Host ""
-Write-Host "IMPORTANT: Copy the 'data' folder next to PDFusion.exe!" -ForegroundColor Red
-Write-Host "  From: $publishPath\data" -ForegroundColor Yellow
-Write-Host "  To:   Same folder as PDFusion.exe" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "You can now run PDFusion.exe from your Desktop!" -ForegroundColor Green
-Write-Host ""
-
-# Offer to open Desktop folder
-$openFolder = Read-Host "Open Desktop folder? (Y/N)"
-if ($openFolder -eq "Y" -or $openFolder -eq "y") {
-    Start-Process explorer.exe -ArgumentList $desktopPath
-}

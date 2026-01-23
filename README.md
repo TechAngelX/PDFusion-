@@ -2,12 +2,12 @@
 
 **Data-driven document reorganisation tool**
 
-A professional Windows desktop application for batch renaming student PDF application forms using CSV or Excel data. Built for admissions offices and educational institutions.
+A cross-platform desktop application for batch renaming student PDF application forms using CSV or Excel data. Built for admissions offices and educational institutions.
 
 ![PDFusion Screenshot](readme_images/screenshot1.png)
 
 ---
- 
+
 ## Features
 
 - Smart data loading from CSV or Excel files
@@ -15,10 +15,11 @@ A professional Windows desktop application for batch renaming student PDF applic
 - Preview all changes before applying
 - Renamed files saved to separate subfolder
 - Undo support for last operation
-- Modern Windows Forms interface
+- Cross-platform support (Windows, macOS, Linux)
+- Modern Avalonia UI interface
 - Automatic proper case formatting and status codes
 
---- 
+---
 
 ## Use Case
 
@@ -48,7 +49,7 @@ Required columns:
 - `Batch` - Batch identifier (e.g., "Batch 1", "Batch 2")
 - `Forename` - Student's first name
 - `Surname` - Student's last name
-- `FeeStatus` - Fee classification (must contain "Home" or "Overseas")
+- `FeeStatus` - Fee classification (Home, Overseas, or European)
 - `UKGrade` - UK grade classification (e.g., "2.1", "1", "2.2", "3")
 
 ### Output Format
@@ -56,14 +57,14 @@ Required columns:
 ```
 b1 John Smith 26049530 H 2_1.pdf
 b1 Jane Doe 26038447 H 1.pdf
-b1 Alex Johnson 26045428 OH 2_1.pdf
+b1 Alex Johnson 26045428 OS 2_1.pdf
 ```
 
 **Format breakdown:**
 - `b1` - Batch number
 - `John Smith` - Proper case name (converted from ALL CAPS)
 - `26049530` - Student number
-- `H` - Home fee status (`OH` = Overseas)
+- `H` - Home fee status (`OS` = Overseas/European)
 - `2_1` - UK grade classification
 
 ---
@@ -72,7 +73,7 @@ b1 Alex Johnson 26045428 OH 2_1.pdf
 
 ### Usage
 
-1. Launch `PDFusion.exe`
+1. Launch PDFusion
 2. **Step 1:** Click or drag your CSV/Excel file with student data
 3. **Step 2:** Choose the folder containing PDF files to rename
 4. Click **Preview Renames** to see all proposed changes
@@ -86,24 +87,29 @@ Original PDF files remain untouched in the source folder.
 ## Installation
 
 ### Option A: Download Release (Recommended)
-1. Download `PDFusion.exe` from the Releases page
-2. Place it anywhere on your PC
-3. Double-click to run (no installation required)
+1. Download the appropriate release for your platform:
+   - Windows: `PDFusion-win-x64.zip`
+   - macOS (Apple Silicon): `PDFusion-osx-arm64.zip`
+   - macOS (Intel): `PDFusion-osx-x64.zip`
+   - Linux: `PDFusion-linux-x64.zip`
+2. Extract and run (no installation required)
 
 ### Option B: Build from Source
-1. Clone this repository
-2. Open PowerShell in project folder
-3. Run: `.\goDeploy.ps1`
-4. Find `PDFusion.exe` on your Desktop
+See [Building from Source](#building-from-source) below.
 
 ---
 
 ## System Requirements
 
-- **OS:** Windows 10/11 (64-bit)
-- **Runtime:** .NET 9.0 (included in self-contained builds)
+| Platform | Requirements |
+|----------|-------------|
+| **Windows** | Windows 10/11 (64-bit) |
+| **macOS** | macOS 11+ (Intel or Apple Silicon) |
+| **Linux** | Ubuntu 20.04+, Fedora 33+, or equivalent |
+
 - **Memory:** Minimum 100MB RAM
-- **Storage:** 10MB disk space
+- **Storage:** 50MB disk space
+- **Runtime:** Included in self-contained builds
 
 ---
 
@@ -114,8 +120,12 @@ PDFusion/
 ├── readme_images/
 │   └── screenshot1.png      # Application screenshot
 ├── data/                     # Sample data folder
-├── MainForm.cs              # Main application logic
-├── UIComponents.cs          # Custom UI controls
+├── App.axaml                # Avalonia application definition
+├── App.axaml.cs             # Application startup
+├── MainWindow.axaml         # Main window UI layout
+├── MainWindow.axaml.cs      # Main application logic
+├── Models.cs                # Data models
+├── Styles.axaml             # Custom UI styles
 ├── Program.cs               # Application entry point
 ├── PDFusion.csproj          # Project configuration
 ├── goDeploy.ps1             # Build & deployment script
@@ -134,7 +144,8 @@ Converts names from ALL CAPS to proper case:
 
 ### Fee Status Codes
 - `HOME` or `HOME (PROVISIONAL)` → `H`
-- `OVERSEAS` or `OVERSEAS STUDENTS` → `OH`
+- `OVERSEAS` or `OVERSEAS STUDENTS` → `OS`
+- `EUROPEAN` or `EUROPEAN (PROVISIONAL)` → `OS`
 
 ### UK Grade Formatting
 - `2.1` or `2:1` → `2_1`
@@ -172,34 +183,91 @@ Converts names from ALL CAPS to proper case:
 - A file with the new name already exists in the Renamed folder
 - Check for duplicate student records in your data
 
+### macOS Security
+On first launch, macOS may block the app. To allow it:
+1. Go to **System Preferences > Security & Privacy**
+2. Click **Open Anyway** for PDFusion
+
 ---
 
 ## Building from Source
 
 ### Prerequisites
-- .NET 9.0 SDK or later
-- Windows OS
+- .NET 10.0 SDK (or .NET 9.0+)
 
-### Build Instructions
+### Quick Build & Run
 
-```powershell
+```bash
 # Clone repository
 git clone https://github.com/yourusername/pdfusion.git
 cd pdfusion
 
-# Option 1: Use deployment script (recommended)
+# Run directly
+dotnet run
+
+# Build release
+dotnet build -c Release
+```
+
+### macOS Build (Recommended)
+
+Use the included shell script to build and copy to Desktop:
+
+```bash
+# Make executable (first time only)
+chmod +x build-mac.sh
+
+# Build and publish to Desktop
+./build-mac.sh
+```
+
+This automatically:
+- Detects your Mac architecture (Intel or Apple Silicon)
+- Builds a self-contained single-file executable
+- Copies the app to `~/Desktop/PDFusion/`
+
+### Windows Build
+
+Use PowerShell:
+
+```powershell
+# Build for current platform
 .\goDeploy.ps1
 
-# Option 2: Manual build
-dotnet restore PDFusion.csproj
-dotnet build PDFusion.csproj -c Release
-dotnet publish PDFusion.csproj -c Release -r win-x64 --self-contained
+# Or specify runtime explicitly
+.\goDeploy.ps1 -Runtime win-x64
 ```
 
-Executable location:
+### Manual Cross-Platform Publishing
+
+```bash
+# Windows (64-bit)
+dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ~/Desktop/PDFusion
+
+# macOS (Apple Silicon)
+dotnet publish -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ~/Desktop/PDFusion
+
+# macOS (Intel)
+dotnet publish -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ~/Desktop/PDFusion
+
+# Linux (64-bit)
+dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ~/Desktop/PDFusion
 ```
-bin\Release\net9.0-windows\win-x64\publish\PDFusion.exe
-```
+
+### Build Scripts
+
+| Platform | Script | Usage |
+|----------|--------|-------|
+| macOS/Linux | `build-mac.sh` | `./build-mac.sh` |
+| Windows | `goDeploy.ps1` | `.\goDeploy.ps1` |
+
+### Output Locations
+
+| Platform | Executable Path |
+|----------|-----------------|
+| Windows | `~/Desktop/PDFusion/PDFusion.exe` |
+| macOS | `~/Desktop/PDFusion/PDFusion` |
+| Linux | `~/Desktop/PDFusion/PDFusion` |
 
 ---
 
@@ -220,7 +288,8 @@ Contributions are welcome. Please submit a Pull Request.
 ## Acknowledgments
 
 **Built with:**
-- .NET 9.0 Windows Forms - UI Framework
+- .NET 10.0 - Runtime
+- Avalonia UI 11.2 - Cross-platform UI framework
 - EPPlus 7.5.2 - Excel file processing
 - C# - Programming language
 

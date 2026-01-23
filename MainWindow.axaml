@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PDFusion.MainWindow"
+        Title="PDFusion - Student Application Manager"
+        Width="1100" Height="800"
+        MinWidth="900" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Background="White">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header Panel with Gradient -->
+        <Border Grid.Row="0" Height="90">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                    <GradientStop Color="#8B5CF6" Offset="0" />
+                    <GradientStop Color="#7C3AED" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <StackPanel Margin="30,15,0,0" VerticalAlignment="Top">
+                    <TextBlock Text="PDFusion"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="White" />
+                    <TextBlock Text="Data-driven File Management Document Renaming Tool"
+                               FontSize="14"
+                               Foreground="#E9D5FF"
+                               Margin="3,5,0,0" />
+                </StackPanel>
+                <TextBlock Text="(c) 2025 Ricki Angel"
+                           FontSize="11"
+                           Foreground="#C4B5FD"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,30,15" />
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="30,20,30,30" Spacing="20">
+
+                <!-- Step 1: Load Student Data -->
+                <StackPanel>
+                    <TextBlock Text="Step 1: Load Student Data (CSV or Excel)" Classes="stepLabel" />
+                    <Border x:Name="DataPanel"
+                            Classes="filePanel"
+                            Height="90"
+                            PointerPressed="DataPanel_Click"
+                            DragDrop.AllowDrop="True">
+                        <TextBlock x:Name="DataPanelText"
+                                   Text="Click or drag CSV/Excel file with student data"
+                                   FontSize="14"
+                                   Foreground="#64748B"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Center" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Step 2: Select PDF Folder -->
+                <StackPanel>
+                    <TextBlock Text="Step 2: Select Folder Containing PDF Files" Classes="stepLabel" />
+                    <Border x:Name="FolderPanel"
+                            Classes="filePanel disabled"
+                            Height="90"
+                            PointerPressed="FolderPanel_Click"
+                            IsEnabled="False">
+                        <TextBlock x:Name="FolderPanelText"
+                                   Text="Click to select folder with PDF files to rename"
+                                   FontSize="14"
+                                   Foreground="#94A3B8"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Center" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Action Buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button x:Name="PreviewButton"
+                            Content="Preview Renames"
+                            Classes="primary"
+                            Width="180"
+                            Height="45"
+                            IsEnabled="False"
+                            Click="PreviewRenames_Click" />
+                    <Button x:Name="ProcessButton"
+                            Content="Apply Renames"
+                            Classes="primary"
+                            Width="180"
+                            Height="45"
+                            IsEnabled="False"
+                            Click="ProcessRenames_Click" />
+                </StackPanel>
+
+                <!-- Preview DataGrid -->
+                <StackPanel>
+                    <TextBlock Text="Rename Preview" Classes="sectionLabel" />
+                    <DataGrid x:Name="PreviewGrid"
+                              Height="200"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserReorderColumns="False"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Current Filename" Binding="{Binding CurrentFilename}" Width="280" />
+                            <DataGridTextColumn Header="" Binding="{Binding Arrow}" Width="40" />
+                            <DataGridTextColumn Header="New Filename" Binding="{Binding NewFilename}" Width="380" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+
+                <!-- Status Log -->
+                <StackPanel>
+                    <TextBlock Text="Status Log" Classes="sectionLabel" />
+                    <TextBox x:Name="StatusBox"
+                             Classes="statusBox"
+                             Height="120"
+                             Text="Ready. Load a CSV or Excel file with student data to begin..." />
+                </StackPanel>
+
+                <!-- Bottom Buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button x:Name="ExitButton"
+                            Content="Exit"
+                            Classes="secondary"
+                            Width="120"
+                            Height="40"
+                            Click="Exit_Click" />
+                    <Button x:Name="UndoButton"
+                            Content="Undo Last Batch"
+                            Classes="secondary"
+                            Width="180"
+                            Height="40"
+                            IsEnabled="False"
+                            Click="UndoRename_Click" />
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
