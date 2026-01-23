@@ -1,16 +1,21 @@
 using System;
-using System.Windows.Forms;
+using Avalonia;
 
 namespace PDFusion
 {
     internal class Program
     {
         [STAThread]
-        static void Main()
+        public static void Main(string[] args)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
         }
+
+        public static AppBuilder BuildAvaloniaApp()
+            => AppBuilder.Configure<App>()
+                .UsePlatformDetect()
+                .WithInterFont()
+                .LogToTrace();
     }
 }
