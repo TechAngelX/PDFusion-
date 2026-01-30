@@ -9,6 +9,7 @@ namespace PDFusion
         public string Surname { get; set; }
         public string FeeStatus { get; set; }
         public string UKGrade { get; set; }
+        public string ApplicationQualityRank { get; set; }
     }
 
     // Rename operation record for undo functionality

@@ -92,6 +92,13 @@
                             Height="45"
                             IsEnabled="False"
                             Click="ProcessRenames_Click" />
+                    <Button x:Name="QualityRankButton"
+                            Content="Append Ranking"
+                            Classes="secondary"
+                            Width="180"
+                            Height="45"
+                            IsEnabled="False"
+                            Click="AddQualityRankPrefix_Click" />
                 </StackPanel>
 
                 <!-- Preview DataGrid -->

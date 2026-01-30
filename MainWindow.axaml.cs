@@ -359,6 +359,7 @@ namespace PDFusion
             int surnameIdx = FindColumnIndex(headers, "Surname", "Last Name");
             int feeStatusIdx = FindColumnIndex(headers, "FeeStatus", "Fee Status");
             int ukGradeIdx = FindColumnIndex(headers, "UKGrade", "UK Grade");
+            int qualityRankIdx = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank");
 
             if (studentNoIdx == -1) throw new Exception("Could not find 'StudentNo' column");
             if (batchIdx == -1) throw new Exception("Could not find 'Batch' column");
@@ -366,6 +367,7 @@ namespace PDFusion
             if (surnameIdx == -1) throw new Exception("Could not find 'Surname' column");
             if (feeStatusIdx == -1) throw new Exception("Could not find 'FeeStatus' column");
             if (ukGradeIdx == -1) throw new Exception("Could not find 'UKGrade' column");
+            // ApplicationQualityRank is optional
 
             // Read data
             while (!reader.EndOfStream)
@@ -384,7 +386,8 @@ namespace PDFusion
                         Forename = forenameIdx < values.Count ? values[forenameIdx].Trim() : "",
                         Surname = surnameIdx < values.Count ? values[surnameIdx].Trim() : "",
                         FeeStatus = feeStatusIdx < values.Count ? values[feeStatusIdx].Trim() : "",
-                        UKGrade = ukGradeIdx < values.Count ? values[ukGradeIdx].Trim() : ""
+                        UKGrade = ukGradeIdx < values.Count ? values[ukGradeIdx].Trim() : "",
+                        ApplicationQualityRank = qualityRankIdx >= 0 && qualityRankIdx < values.Count ? values[qualityRankIdx].Trim() : ""
                     });
                 }
             }
@@ -450,6 +453,7 @@ namespace PDFusion
             int surnameCol = FindColumnIndex(headers, "Surname", "Last Name") + 1;
             int feeStatusCol = FindColumnIndex(headers, "FeeStatus", "Fee Status") + 1;
             int ukGradeCol = FindColumnIndex(headers, "UKGrade", "UK Grade") + 1;
+            int qualityRankCol = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank") + 1;
 
             if (studentNoCol == 0) throw new Exception("Could not find 'StudentNo' column");
             if (batchCol == 0) throw new Exception("Could not find 'Batch' column");
@@ -457,6 +461,7 @@ namespace PDFusion
             if (surnameCol == 0) throw new Exception("Could not find 'Surname' column");
             if (feeStatusCol == 0) throw new Exception("Could not find 'FeeStatus' column");
             if (ukGradeCol == 0) throw new Exception("Could not find 'UKGrade' column");
+            // ApplicationQualityRank is optional (qualityRankCol will be 0 if not found)
 
             // Read data
             for (int row = 2; row <= worksheet.Dimension.Rows; row++)
@@ -472,7 +477,8 @@ namespace PDFusion
                         Forename = worksheet.Cells[row, forenameCol].Value?.ToString()?.Trim() ?? "",
                         Surname = worksheet.Cells[row, surnameCol].Value?.ToString()?.Trim() ?? "",
                         FeeStatus = worksheet.Cells[row, feeStatusCol].Value?.ToString()?.Trim() ?? "",
-                        UKGrade = worksheet.Cells[row, ukGradeCol].Value?.ToString()?.Trim() ?? ""
+                        UKGrade = worksheet.Cells[row, ukGradeCol].Value?.ToString()?.Trim() ?? "",
+                        ApplicationQualityRank = qualityRankCol > 0 ? worksheet.Cells[row, qualityRankCol].Value?.ToString()?.Trim() ?? "" : ""
                     });
                 }
             }
@@ -528,6 +534,15 @@ namespace PDFusion
                 UpdateStatus($"  Found {pdfFiles.Length} PDF files");
 
                 PreviewButton.IsEnabled = true;
+
+                // Enable Append Ranking button if any students have a quality rank
+                bool hasQualityRanks = studentData.Any(s => !string.IsNullOrWhiteSpace(s.ApplicationQualityRank));
+                QualityRankButton.IsEnabled = hasQualityRanks;
+                if (hasQualityRanks)
+                {
+                    int rankCount = studentData.Count(s => !string.IsNullOrWhiteSpace(s.ApplicationQualityRank));
+                    UpdateStatus($"  Found {rankCount} students with Application Quality Rank");
+                }
             }
         }
 
@@ -913,6 +928,145 @@ namespace PDFusion
                 await ShowMessageBox("Error", "Error during undo: " + ex.Message);
                 UpdateStatus($"ERROR: {ex.Message}");
             }
+        }
+
+        private async void AddQualityRankPrefix_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(pdfFolderPath) || !Directory.Exists(pdfFolderPath))
+            {
+                await ShowMessageBox("Info", "Please select a PDF folder first.");
+                return;
+            }
+
+            // Build lookup of student number to quality rank
+            var qualityRankLookup = studentData
+                .Where(s => !string.IsNullOrWhiteSpace(s.ApplicationQualityRank))
+                .ToDictionary(s => s.StudentNo, s => s.ApplicationQualityRank.Trim());
+
+            if (qualityRankLookup.Count == 0)
+            {
+                await ShowMessageBox("Info", "No Application Quality Rank data found in the loaded data file.");
+                return;
+            }
+
+            var result = await ShowConfirmDialog("Append Ranking",
+                $"This will prefix PDF files with their Application Quality Rank.\n\n" +
+                $"Example: 'A - filename.pdf'\n\n" +
+                $"Found {qualityRankLookup.Count} students with quality ranks.\n\n" +
+                "Files will be renamed in place. Continue?");
+
+            if (!result) return;
+
+            try
+            {
+                UpdateStatus("\n--- Appending Quality Rank Prefixes ---");
+
+                var pdfFiles = Directory.GetFiles(pdfFolderPath, "*.pdf", SearchOption.TopDirectoryOnly);
+                int successCount = 0;
+                int skipCount = 0;
+                int errorCount = 0;
+
+                foreach (var filePath in pdfFiles)
+                {
+                    string filename = Path.GetFileName(filePath);
+
+                    // Try to extract student number from various filename formats
+                    string studentNo = ExtractStudentNumberForRanking(filename);
+
+                    if (string.IsNullOrEmpty(studentNo))
+                    {
+                        UpdateStatus($"Skipped (no student number): {filename}");
+                        skipCount++;
+                        continue;
+                    }
+
+                    if (!qualityRankLookup.ContainsKey(studentNo))
+                    {
+                        UpdateStatus($"Skipped (no quality rank for {studentNo}): {filename}");
+                        skipCount++;
+                        continue;
+                    }
+
+                    string qualityRank = qualityRankLookup[studentNo];
+
+                    // Skip if already has a quality rank prefix (character followed by " - ")
+                    if (filename.Length > 4 && filename.Substring(1, 3) == " - ")
+                    {
+                        UpdateStatus($"Skipped (already has prefix): {filename}");
+                        skipCount++;
+                        continue;
+                    }
+
+                    string newFilename = $"{qualityRank} - {filename}";
+                    string newPath = Path.Combine(pdfFolderPath, newFilename);
+
+                    try
+                    {
+                        if (File.Exists(newPath))
+                        {
+                            UpdateStatus($"Skipped (target exists): {newFilename}");
+                            skipCount++;
+                            continue;
+                        }
+
+                        File.Move(filePath, newPath);
+                        UpdateStatus($"Prefixed: {filename} -> {newFilename}");
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdateStatus($"Error renaming {filename}: {ex.Message}");
+                        errorCount++;
+                    }
+                }
+
+                UpdateStatus($"\n--- Append Ranking complete: {successCount} renamed, {skipCount} skipped, {errorCount} errors ---");
+
+                await ShowMessageBox("Complete",
+                    $"Append Ranking complete!\n\n" +
+                    $"Successfully prefixed: {successCount} files\n" +
+                    $"Skipped: {skipCount} files\n" +
+                    $"Errors: {errorCount} files");
+
+                // Disable the button after use to prevent double-prefixing
+                QualityRankButton.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                await ShowMessageBox("Error", "Error appending ranking prefixes: " + ex.Message);
+                UpdateStatus($"ERROR: {ex.Message}");
+            }
+        }
+
+        private string ExtractStudentNumberForRanking(string filename)
+        {
+            // Try multiple formats:
+            // 1. Original format: XXXXXXXX-XX-XX-OVERVIEW.PDF (student number before first dash)
+            // 2. Renamed format: b1 John Smith 26049530 H 2_1.pdf (7-10 digit number in filename)
+
+            // First try the original format (number before first dash)
+            var dashParts = filename.Split('-');
+            if (dashParts.Length >= 1)
+            {
+                string firstPart = dashParts[0].Trim();
+                if (firstPart.All(char.IsDigit) && firstPart.Length >= 7 && firstPart.Length <= 10)
+                {
+                    return firstPart;
+                }
+            }
+
+            // Then try finding any 7-10 digit number in the filename
+            var spaceParts = filename.Split(' ');
+            foreach (var part in spaceParts)
+            {
+                string cleanPart = part.Replace(".pdf", "").Replace(".PDF", "");
+                if (cleanPart.All(char.IsDigit) && cleanPart.Length >= 7 && cleanPart.Length <= 10)
+                {
+                    return cleanPart;
+                }
+            }
+
+            return null;
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)
