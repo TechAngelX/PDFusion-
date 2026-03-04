@@ -359,7 +359,7 @@ namespace PDFusion
             int surnameIdx = FindColumnIndex(headers, "Surname", "Last Name");
             int feeStatusIdx = FindColumnIndex(headers, "FeeStatus", "Fee Status");
             int ukGradeIdx = FindColumnIndex(headers, "UKGrade", "UK Grade");
-            int qualityRankIdx = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank");
+            int qualityRankIdx = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank", "AT Note (Ranking)", "ATNote(Ranking)", "AT Note Ranking", "Ranking");
 
             if (studentNoIdx == -1) throw new Exception("Could not find 'StudentNo' column");
             if (batchIdx == -1) throw new Exception("Could not find 'Batch' column");
@@ -453,7 +453,7 @@ namespace PDFusion
             int surnameCol = FindColumnIndex(headers, "Surname", "Last Name") + 1;
             int feeStatusCol = FindColumnIndex(headers, "FeeStatus", "Fee Status") + 1;
             int ukGradeCol = FindColumnIndex(headers, "UKGrade", "UK Grade") + 1;
-            int qualityRankCol = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank") + 1;
+            int qualityRankCol = FindColumnIndex(headers, "ApplicationQualityRank", "Application Quality Rank", "AT Note (Ranking)", "ATNote(Ranking)", "AT Note Ranking", "Ranking") + 1;
 
             if (studentNoCol == 0) throw new Exception("Could not find 'StudentNo' column");
             if (batchCol == 0) throw new Exception("Could not find 'Batch' column");
@@ -488,11 +488,11 @@ namespace PDFusion
         {
             for (int i = 0; i < headers.Count; i++)
             {
-                string header = headers[i].Replace(" ", "").Replace("_", "").ToLower();
+                string header = headers[i].Replace(" ", "").Replace("_", "").Replace("(", "").Replace(")", "").ToLower();
 
                 foreach (var name in possibleNames)
                 {
-                    string cleanName = name.Replace(" ", "").Replace("_", "").ToLower();
+                    string cleanName = name.Replace(" ", "").Replace("_", "").Replace("(", "").Replace(")", "").ToLower();
                     if (header == cleanName)
                         return i;
                 }
@@ -938,6 +938,12 @@ namespace PDFusion
                 return;
             }
 
+            if (studentData == null || studentData.Count == 0)
+            {
+                await ShowMessageBox("Info", "Please load a spreadsheet first.");
+                return;
+            }
+
             // Build lookup of student number to quality rank
             var qualityRankLookup = studentData
                 .Where(s => !string.IsNullOrWhiteSpace(s.ApplicationQualityRank))
@@ -945,23 +951,39 @@ namespace PDFusion
 
             if (qualityRankLookup.Count == 0)
             {
-                await ShowMessageBox("Info", "No Application Quality Rank data found in the loaded data file.");
+                await ShowMessageBox("Info", "No ranking data found in the loaded spreadsheet.\n\nMake sure your spreadsheet has a column like 'AT Note (Ranking)' or 'Ranking'.");
+                return;
+            }
+
+            // Scan the selected PDF folder directly
+            var pdfFiles = Directory.GetFiles(pdfFolderPath, "*.pdf", SearchOption.TopDirectoryOnly);
+
+            if (pdfFiles.Length == 0)
+            {
+                await ShowMessageBox("Info", "No PDF files found in the selected folder.");
                 return;
             }
 
             var result = await ShowConfirmDialog("Append Ranking",
-                $"This will prefix PDF files with their Application Quality Rank.\n\n" +
-                $"Example: 'A - filename.pdf'\n\n" +
-                $"Found {qualityRankLookup.Count} students with quality ranks.\n\n" +
-                "Files will be renamed in place. Continue?");
+                $"This will prefix PDF files with their ranking letter.\n\n" +
+                $"Example: 'A - b1 John Smith 12345678 H 2_1.pdf'\n\n" +
+                $"Found {qualityRankLookup.Count} students with rankings and {pdfFiles.Length} PDF files.\n\n" +
+                "Ranked copies will be saved to a 'RankRenamed' subfolder. Originals are unchanged. Continue?");
 
             if (!result) return;
 
             try
             {
-                UpdateStatus("\n--- Appending Quality Rank Prefixes ---");
+                // Create RankRenamed subfolder (originals are preserved)
+                string rankOutputPath = Path.Combine(pdfFolderPath, "RankRenamed");
+                if (!Directory.Exists(rankOutputPath))
+                {
+                    Directory.CreateDirectory(rankOutputPath);
+                }
 
-                var pdfFiles = Directory.GetFiles(pdfFolderPath, "*.pdf", SearchOption.TopDirectoryOnly);
+                UpdateStatus("\n--- Appending Ranking Prefixes ---");
+                UpdateStatus($"Output folder: {rankOutputPath}");
+
                 int successCount = 0;
                 int skipCount = 0;
                 int errorCount = 0;
@@ -970,66 +992,78 @@ namespace PDFusion
                 {
                     string filename = Path.GetFileName(filePath);
 
-                    // Try to extract student number from various filename formats
+                    // Extract student number from the PDF filename
                     string studentNo = ExtractStudentNumberForRanking(filename);
 
                     if (string.IsNullOrEmpty(studentNo))
                     {
-                        UpdateStatus($"Skipped (no student number): {filename}");
+                        UpdateStatus($"Skipped (no student number found): {filename}");
                         skipCount++;
                         continue;
                     }
 
                     if (!qualityRankLookup.ContainsKey(studentNo))
                     {
-                        UpdateStatus($"Skipped (no quality rank for {studentNo}): {filename}");
+                        UpdateStatus($"Skipped (no ranking for student {studentNo}): {filename}");
                         skipCount++;
                         continue;
                     }
 
-                    string qualityRank = qualityRankLookup[studentNo];
+                    string ranking = qualityRankLookup[studentNo];
 
-                    // Skip if already has a quality rank prefix (character followed by " - ")
-                    if (filename.Length > 4 && filename.Substring(1, 3) == " - ")
+                    // Skip if already has a ranking prefix (single letter followed by " - ")
+                    // e.g. "A - b5 John Smith..." but NOT "b5 - John Smith..."
+                    if (filename.Length > 4 && filename[1] == ' ' && filename[2] == '-' && filename[3] == ' '
+                        && char.IsLetter(filename[0]) && !filename.StartsWith("b", StringComparison.OrdinalIgnoreCase))
                     {
-                        UpdateStatus($"Skipped (already has prefix): {filename}");
+                        UpdateStatus($"Skipped (already has ranking prefix): {filename}");
                         skipCount++;
                         continue;
                     }
 
-                    string newFilename = $"{qualityRank} - {filename}";
-                    string newPath = Path.Combine(pdfFolderPath, newFilename);
+                    string newFilename = $"{ranking} - {filename}";
+                    string newPath = Path.Combine(rankOutputPath, newFilename);
 
                     try
                     {
                         if (File.Exists(newPath))
                         {
-                            UpdateStatus($"Skipped (target exists): {newFilename}");
+                            UpdateStatus($"Skipped (target file already exists): {newFilename}");
                             skipCount++;
                             continue;
                         }
 
-                        File.Move(filePath, newPath);
-                        UpdateStatus($"Prefixed: {filename} -> {newFilename}");
+                        File.Copy(filePath, newPath);
+                        UpdateStatus($"Copied: {filename} -> {newFilename}");
                         successCount++;
                     }
                     catch (Exception ex)
                     {
-                        UpdateStatus($"Error renaming {filename}: {ex.Message}");
+                        UpdateStatus($"Error copying {filename}: {ex.Message}");
                         errorCount++;
                     }
                 }
 
-                UpdateStatus($"\n--- Append Ranking complete: {successCount} renamed, {skipCount} skipped, {errorCount} errors ---");
+                UpdateStatus($"\n--- Append Ranking complete: {successCount} copied, {skipCount} skipped, {errorCount} errors ---");
 
                 await ShowMessageBox("Complete",
                     $"Append Ranking complete!\n\n" +
-                    $"Successfully prefixed: {successCount} files\n" +
+                    $"Copied to 'RankRenamed' folder: {successCount} files\n" +
                     $"Skipped: {skipCount} files\n" +
-                    $"Errors: {errorCount} files");
+                    $"Errors: {errorCount} files\n\n" +
+                    $"Output: {rankOutputPath}");
 
                 // Disable the button after use to prevent double-prefixing
                 QualityRankButton.IsEnabled = false;
+
+                if (successCount > 0)
+                {
+                    var openFolder = await ShowConfirmDialog("Open Folder", "Open the RankRenamed folder?");
+                    if (openFolder)
+                    {
+                        OpenFolder(rankOutputPath);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -1042,31 +1076,36 @@ namespace PDFusion
         {
             // Try multiple formats:
             // 1. Original format: XXXXXXXX-XX-XX-OVERVIEW.PDF (student number before first dash)
-            // 2. Renamed format: b1 John Smith 26049530 H 2_1.pdf (7-10 digit number in filename)
+            // 2. Renamed format: b1 John Smith 26049530 H 2_1.pdf (5-10 digit number in filename)
 
             // First try the original format (number before first dash)
             var dashParts = filename.Split('-');
             if (dashParts.Length >= 1)
             {
                 string firstPart = dashParts[0].Trim();
-                if (firstPart.All(char.IsDigit) && firstPart.Length >= 7 && firstPart.Length <= 10)
+                if (firstPart.All(char.IsDigit) && firstPart.Length >= 5 && firstPart.Length <= 10)
                 {
                     return firstPart;
                 }
             }
 
-            // Then try finding any 7-10 digit number in the filename
+            // Then try finding any 5-10 digit number in the filename
+            // Look for the longest all-digit token (most likely the student number)
             var spaceParts = filename.Split(' ');
+            string bestMatch = null;
             foreach (var part in spaceParts)
             {
                 string cleanPart = part.Replace(".pdf", "").Replace(".PDF", "");
-                if (cleanPart.All(char.IsDigit) && cleanPart.Length >= 7 && cleanPart.Length <= 10)
+                if (cleanPart.Length >= 5 && cleanPart.Length <= 10 && cleanPart.All(char.IsDigit))
                 {
-                    return cleanPart;
+                    if (bestMatch == null || cleanPart.Length > bestMatch.Length)
+                    {
+                        bestMatch = cleanPart;
+                    }
                 }
             }
 
-            return null;
+            return bestMatch;
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)
