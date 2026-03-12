@@ -656,18 +656,31 @@ namespace PDFusion
 
         private string ExtractStudentNumber(string filename)
         {
-            // Extract student number from format: XXXXXXXX-XX-XX-OVERVIEW.PDF
-            var parts = filename.Split('-');
-            if (parts.Length >= 1)
+            // Try original format first: XXXXXXXX-XX-XX-OVERVIEW.PDF (digits before first dash)
+            var dashParts = filename.Split('-');
+            if (dashParts.Length >= 1)
             {
-                string firstPart = parts[0].Trim();
-                // Check if it's numeric and reasonable length
+                string firstPart = dashParts[0].Trim();
                 if (firstPart.All(char.IsDigit) && firstPart.Length >= 7 && firstPart.Length <= 10)
                 {
                     return firstPart;
                 }
             }
-            return null;
+
+            // Also handle already-renamed format: b7 John Smith 26049530 H 2_1.pdf
+            // Find the longest space-separated all-digit token (7-10 digits)
+            var spaceParts = filename.Split(' ');
+            string bestMatch = null;
+            foreach (var part in spaceParts)
+            {
+                string cleanPart = part.Replace(".pdf", "").Replace(".PDF", "");
+                if (cleanPart.Length >= 7 && cleanPart.Length <= 10 && cleanPart.All(char.IsDigit))
+                {
+                    if (bestMatch == null || cleanPart.Length > bestMatch.Length)
+                        bestMatch = cleanPart;
+                }
+            }
+            return bestMatch;
         }
 
         private string GenerateNewFilename(StudentRecord student)
